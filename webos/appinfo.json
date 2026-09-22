@@ -1,0 +1,9 @@
+{
+  "id": "io.github.sysdvrwebos.client",
+  "type": "native",
+  "main": "sysdvr-webos",
+  "icon": "icon.png",
+  "title": "SysDVR",
+  "version": "1.0.0",
+  "vendor": "sysdvr-webos"
+}
