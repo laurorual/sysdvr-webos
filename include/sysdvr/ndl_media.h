@@ -35,6 +35,16 @@ bool ndl_media_open(
     int display_height
 );
 
+
+/* Opens NDL with video only. Audio can then use a separate low-latency sink. */
+bool ndl_media_open_video_only(
+    ndl_media *player,
+    int encoded_width,
+    int encoded_height,
+    int display_width,
+    int display_height
+);
+
 ndl_feed_result ndl_media_feed_video(
     ndl_media *player,
     const void *data,

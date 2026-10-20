@@ -101,6 +101,7 @@ static bool parse_descriptor(
     }
 
     memset(out, 0, sizeof(*out));
+    out->source = STREAM_SOURCE_SYSDVR;
 
     if (inet_ntop(
             AF_INET,

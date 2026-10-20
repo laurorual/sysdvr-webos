@@ -9,7 +9,13 @@ extern "C" {
 
 typedef struct sysdvr_discovery sysdvr_discovery;
 
+typedef enum stream_source {
+    STREAM_SOURCE_SYSDVR = 0,
+    STREAM_SOURCE_FRAMETAP = 1
+} stream_source;
+
 typedef struct sysdvr_device {
+    stream_source source;
     char host[64];
     char client_version[32];
     char protocol[8];

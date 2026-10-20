@@ -3,12 +3,15 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 
@@ -85,14 +88,121 @@ void sysdvr_log_socket_state(
     );
 }
 
-int sysdvr_tcp_connect(const char *host, uint16_t port)
+
+void sysdvr_log_transport_metrics(
+    int fd,
+    const char *context)
+{
+    int pending = -1;
+    if (ioctl(fd, FIONREAD, &pending) != 0) {
+        pending = -1;
+    }
+
+#ifdef TCP_INFO
+    /*
+     * Linux TCP_INFO has kept these initial fields ABI-stable for many years,
+     * but some older webOS libc headers expose TCP_INFO without declaring
+     * struct tcp_info. Use a small compatible prefix instead of depending on
+     * the userspace header's struct definition.
+     */
+    struct sft_tcp_info_compat {
+        uint8_t state, ca_state, retransmits, probes;
+        uint8_t backoff, options, wscale, app_limited;
+        uint32_t rto, ato, snd_mss, rcv_mss;
+        uint32_t unacked, sacked, lost, retrans, fackets;
+        uint32_t last_data_sent, last_ack_sent, last_data_recv, last_ack_recv;
+        uint32_t pmtu, rcv_ssthresh, rtt, rttvar;
+        uint32_t snd_ssthresh, snd_cwnd, advmss, reordering;
+        uint32_t rcv_rtt, rcv_space;
+    } info;
+    memset(&info, 0, sizeof(info));
+    socklen_t info_size = sizeof(info);
+
+    if (getsockopt(fd, IPPROTO_TCP, TCP_INFO, &info, &info_size) == 0) {
+        LOGF(
+            "[transport] context=%s fd=%d rx_pending=%d tcp_state=%u "
+            "rtt=%.2fms rttvar=%.2fms rto=%.2fms unacked=%u lost=%u "
+            "retrans=%u snd_cwnd=%u rcv_space=%u\n",
+            context != NULL ? context : "?",
+            fd,
+            pending,
+            (unsigned)info.state,
+            (double)info.rtt / 1000.0,
+            (double)info.rttvar / 1000.0,
+            (double)info.rto / 1000.0,
+            (unsigned)info.unacked,
+            (unsigned)info.lost,
+            (unsigned)info.retrans,
+            (unsigned)info.snd_cwnd,
+            (unsigned)info.rcv_space
+        );
+        return;
+    }
+#endif
+
+    LOGF(
+        "[transport] context=%s fd=%d rx_pending=%d tcp_info=unavailable\n",
+        context != NULL ? context : "?",
+        fd,
+        pending
+    );
+}
+
+static int connect_one_timeout(
+    int fd,
+    const struct sockaddr *address,
+    socklen_t address_size,
+    int timeout_ms)
+{
+    int old_flags = fcntl(fd, F_GETFL, 0);
+    if (old_flags < 0) return -1;
+    if (fcntl(fd, F_SETFL, old_flags | O_NONBLOCK) != 0) return -1;
+
+    int rc = connect(fd, address, address_size);
+    if (rc != 0 && errno != EINPROGRESS && errno != EWOULDBLOCK) {
+        (void)fcntl(fd, F_SETFL, old_flags);
+        return -1;
+    }
+
+    if (rc != 0) {
+        fd_set ws;
+        FD_ZERO(&ws);
+        FD_SET(fd, &ws);
+        struct timeval tv = {
+            .tv_sec = timeout_ms / 1000,
+            .tv_usec = (timeout_ms % 1000) * 1000,
+        };
+        rc = select(fd + 1, NULL, &ws, NULL, &tv);
+        if (rc <= 0) {
+            if (rc == 0) errno = ETIMEDOUT;
+            (void)fcntl(fd, F_SETFL, old_flags);
+            return -1;
+        }
+
+        int so_error = 0;
+        socklen_t so_error_size = sizeof(so_error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &so_error_size) != 0 ||
+            so_error != 0) {
+            if (so_error != 0) errno = so_error;
+            (void)fcntl(fd, F_SETFL, old_flags);
+            return -1;
+        }
+    }
+
+    if (fcntl(fd, F_SETFL, old_flags) != 0) return -1;
+    return 0;
+}
+
+int sysdvr_tcp_connect_timeout(const char *host, uint16_t port, int timeout_ms)
 {
     char port_string[6];
     struct addrinfo hints;
     struct addrinfo *result = NULL;
     struct addrinfo *it = NULL;
     int fd = -1;
+    int last_errno = 0;
 
+    if (timeout_ms <= 0) timeout_ms = 5000;
     snprintf(port_string, sizeof(port_string), "%u", (unsigned)port);
 
     memset(&hints, 0, sizeof(hints));
@@ -102,25 +212,23 @@ int sysdvr_tcp_connect(const char *host, uint16_t port)
 
     int gai = getaddrinfo(host, port_string, &hints, &result);
     if (gai != 0) {
-        LOGF( "[net] getaddrinfo(%s:%s): %s\n",
-                host, port_string, gai_strerror(gai));
+        LOGF("[net] getaddrinfo(%s:%s): %s\n", host, port_string, gai_strerror(gai));
         return -1;
     }
 
     for (it = result; it != NULL; it = it->ai_next) {
         fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
-        if (fd < 0) {
-            continue;
-        }
+        if (fd < 0) continue;
 
         int one = 1;
         (void)setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
         (void)setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one));
 
-        if (connect(fd, it->ai_addr, it->ai_addrlen) == 0) {
+        if (connect_one_timeout(fd, it->ai_addr, (socklen_t)it->ai_addrlen, timeout_ms) == 0) {
             break;
         }
 
+        last_errno = errno;
         close(fd);
         fd = -1;
     }
@@ -128,11 +236,17 @@ int sysdvr_tcp_connect(const char *host, uint16_t port)
     freeaddrinfo(result);
 
     if (fd < 0) {
-        LOGF( "[net] could not connect to %s:%s: %s\n",
-                host, port_string, strerror(errno));
+        if (last_errno != 0) errno = last_errno;
+        LOGF("[net] could not connect to %s:%s within %dms: %s\n",
+             host, port_string, timeout_ms, strerror(errno));
     }
 
     return fd;
+}
+
+int sysdvr_tcp_connect(const char *host, uint16_t port)
+{
+    return sysdvr_tcp_connect_timeout(host, port, 5000);
 }
 
 int sysdvr_set_receive_timeout(int fd, int timeout_ms)

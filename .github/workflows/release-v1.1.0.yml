@@ -1,0 +1,97 @@
+name: Build and publish v1.1.0 beta
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - io.github.sysdvrwebos.client.manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-v1.1.0
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify release version
+        shell: bash
+        run: |
+          test "$(tr -d '\r\n' < VERSION)" = "1.1.0"
+          grep -q '"version": "1.1.0"' webos/appinfo.json
+
+      - name: Install build utilities
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build
+
+      - name: Setup webOS NDK
+        id: ndk
+        uses: webosbrew/setup-webos-ndk-action@cd1c0f56e95cef71864abf66805da24428fd8ff2
+        with:
+          install-location: /tmp
+
+      - name: Install webOS CLI
+        shell: bash
+        run: npm install -g @webos-tools/cli
+
+      - name: Build ARM IPK
+        shell: bash
+        env:
+          WEBOS_TOOLCHAIN_FILE: ${{ steps.ndk.outputs.cmake-toolchain }}
+        run: ./scripts/build-webos.sh
+
+      - name: Generate Homebrew manifest
+        shell: bash
+        run: |
+          ./scripts/gen-webosbrew-manifest.py \
+            --source-url https://github.com/laurorual/sysdvr-webos \
+            --tag v1.1.0 \
+            --ipk dist/io.github.sysdvrwebos.client_1.1.0_arm.ipk \
+            --output io.github.sysdvrwebos.client.manifest.json
+          cat io.github.sysdvrwebos.client.manifest.json
+
+      - name: Commit generated manifest
+        shell: bash
+        run: |
+          if git diff --quiet -- io.github.sysdvrwebos.client.manifest.json 2>/dev/null && \
+             git ls-files --error-unmatch io.github.sysdvrwebos.client.manifest.json >/dev/null 2>&1; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add io.github.sysdvrwebos.client.manifest.json
+          git commit -m "Update Homebrew manifest for v1.1.0 [skip release]"
+          git push origin HEAD:main
+
+      - name: Publish beta release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.0 >/dev/null 2>&1; then
+            gh release upload v1.1.0 \
+              dist/io.github.sysdvrwebos.client_1.1.0_arm.ipk \
+              io.github.sysdvrwebos.client.manifest.json \
+              --clobber
+            gh release edit v1.1.0 \
+              --title "v1.1.0 beta" \
+              --notes-file RELEASE_NOTES_v1.1.0.md
+          else
+            gh release create v1.1.0 \
+              dist/io.github.sysdvrwebos.client_1.1.0_arm.ipk \
+              io.github.sysdvrwebos.client.manifest.json \
+              --target main \
+              --title "v1.1.0 beta" \
+              --notes-file RELEASE_NOTES_v1.1.0.md
+          fi

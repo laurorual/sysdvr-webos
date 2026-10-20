@@ -71,10 +71,11 @@ ndl_media *ndl_media_create(const char *app_id)
     return p;
 }
 
-bool ndl_media_open(
+static bool ndl_media_open_internal(
     ndl_media *p,
     int ew,
     int eh,
+    bool with_audio,
     int sample_rate,
     int channels,
     int dw,
@@ -84,42 +85,59 @@ bool ndl_media_open(
         return false;
     }
 
-    NDL_DIRECTMEDIA_DATA_INFO_T info = {
-        .video = {
-            .width = ew,
-            .height = eh,
-            .type = NDL_VIDEO_TYPE_H264,
-        },
-        .audio = {
-            .pcm = {
-                .type = NDL_AUDIO_TYPE_PCM,
-                .format = NDL_DIRECTMEDIA_AUDIO_PCM_FORMAT_S16LE,
-                .layout = "interleaved",
-                .channelMode = channels == 1 ? "mono" : "stereo",
-                .sampleRate =
-                    NDL_DIRECTMEDIA_AUDIO_PCM_SAMPLE_RATE_OF(sample_rate),
-            },
-        },
-    };
+    NDL_DIRECTMEDIA_DATA_INFO_T info = {0};
+    info.video.width = ew;
+    info.video.height = eh;
+    info.video.type = NDL_VIDEO_TYPE_H264;
 
-    LOGF(
-            "[ndl] loading H264 %dx%d + PCM S16LE %dch %dHz\n",
-            ew, eh, channels, sample_rate);
+    if (with_audio) {
+        info.audio.pcm.type = NDL_AUDIO_TYPE_PCM;
+        info.audio.pcm.format = NDL_DIRECTMEDIA_AUDIO_PCM_FORMAT_S16LE;
+        info.audio.pcm.layout = "interleaved";
+        info.audio.pcm.channelMode = channels == 1 ? "mono" : "stereo";
+        info.audio.pcm.sampleRate =
+            NDL_DIRECTMEDIA_AUDIO_PCM_SAMPLE_RATE_OF(sample_rate);
+        LOGF("[ndl] loading H264 %dx%d + PCM S16LE %dch %dHz\n",
+             ew, eh, channels, sample_rate);
+    } else {
+        LOGF("[ndl] loading H264 %dx%d video-only (audio via SDL)\n", ew, eh);
+    }
 
     if (NDL_DirectMediaLoad(&info, media_event) != 0) {
-        LOGF( "[ndl] load failed: %s\n", NDL_DirectMediaGetError());
+        LOGF("[ndl] load failed: %s\n", NDL_DirectMediaGetError());
         return false;
     }
 
     p->loaded = true;
 
     if (NDL_DirectVideoSetArea(0, 0, dw, dh) != 0) {
-        LOGF( "[ndl] set-area warning: %s\n",
-                NDL_DirectMediaGetError());
+        LOGF("[ndl] set-area warning: %s\n", NDL_DirectMediaGetError());
     }
 
-    LOGF( "[ndl] video area 0,0 %dx%d\n", dw, dh);
+    LOGF("[ndl] video area 0,0 %dx%d\n", dw, dh);
     return true;
+}
+
+bool ndl_media_open(
+    ndl_media *p,
+    int ew,
+    int eh,
+    int sample_rate,
+    int channels,
+    int dw,
+    int dh)
+{
+    return ndl_media_open_internal(p, ew, eh, true, sample_rate, channels, dw, dh);
+}
+
+bool ndl_media_open_video_only(
+    ndl_media *p,
+    int ew,
+    int eh,
+    int dw,
+    int dh)
+{
+    return ndl_media_open_internal(p, ew, eh, false, 0, 0, dw, dh);
 }
 
 static ndl_feed_result feed_locked(

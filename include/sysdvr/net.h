@@ -10,6 +10,9 @@ extern "C" {
 
 int sysdvr_tcp_connect(const char *host, uint16_t port);
 
+/* TCP connect with a bounded non-blocking handshake timeout. */
+int sysdvr_tcp_connect_timeout(const char *host, uint16_t port, int timeout_ms);
+
 /*
  * Increase the receive queue to make brief decoder stalls less likely to
  * propagate back to the Switch. The kernel may clamp/double the value.
@@ -26,6 +29,9 @@ int sysdvr_set_receive_timeout(int fd, int timeout_ms);
 
 /* Emit SO_ERROR and peer endpoint information for post-mortem diagnostics. */
 void sysdvr_log_socket_state(int fd, const char *context);
+
+/* Log receive-queue depth plus TCP_INFO when the platform exposes it. */
+void sysdvr_log_transport_metrics(int fd, const char *context);
 
 ssize_t sysdvr_read_exact(int fd, void *buffer, size_t size);
 ssize_t sysdvr_write_all(int fd, const void *buffer, size_t size);

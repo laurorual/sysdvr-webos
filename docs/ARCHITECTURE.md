@@ -1,101 +1,40 @@
-# Architecture — milestone 0.5
+# Architecture
 
-## Layers
+`sysdvr-webos` keeps one webOS UI/session layer and selects one of two streaming backends per discovered entry.
 
-```text
-UI (SDL2 + SDL2_ttf)
-        |
-Session Manager
-        |
-Discovery / preferred-console policy
-        |
-A/V streaming session
-        |
-SysDVR protocol + NDL DirectMedia
-```
+## Discovery
 
-The 0.5 work deliberately does not change packet handling or NDL feed logic.
+- SysDVR: UDP 19999 (`SysDVR|...`)
+- Switch Frame Tap: UDP 9951 (`SFTAP1 ...`)
 
-## Session states
+The source IP of each datagram is treated as authoritative. The session registry keeps the backend identity as part of the device key, so SysDVR and Frame Tap running on the same Switch can coexist as two selector entries.
 
-Conceptually:
+## SysDVR path
 
 ```text
-BROWSE
-  |
-  | OK
-  v
-CONNECTING
-  |
-  v
-STREAMING
-  | \
-  |  \ Back
-  |   -> BROWSE
-  |
-  | remote close
-  v
-WAIT_PREFERRED
-  |
-  | matching serial/IP appears
-  v
-RECONNECTING
-  |
-  v
-STREAMING
+TCP 9911 video ─┐
+                 ├─ SysDVR protocol parser ─ NDL DirectMedia shared timeline
+TCP 9922 audio ─┘
 ```
 
-## Discovery registry
+Both streams use SysDVR timestamps and feed the same DirectMedia player.
 
-A console is keyed by serial when available, otherwise by source IP.
+## Switch Frame Tap path
 
-Normal discovery entries expire after 7 seconds without a fresh UDP broadcast.
-Manual-IP entries never expire.
+```text
+TCP 9950 / SFTR v2
+       ├─ H.264 ─ keyframe/sequence recovery ─ NDL DirectMedia video-only
+       └─ PCM 48 kHz stereo ─ bounded SDL audio queue
+```
 
-## Preferred console
+Frame Tap does not currently expose a shared presentation clock comparable to SysDVR. The client therefore keeps audio latency bounded instead of allowing stale PCM to accumulate across transport stalls.
 
-The first user-selected device is remembered in memory by:
+The video backend requests a fresh keyframe with `SFTK` after discontinuities, waits for an IDR before resuming dependent P-frames, and recreates the NDL decoder when the encoded resolution changes.
 
-1. serial, if advertised;
-2. source IP as fallback.
+## Reconnect policy
 
-Sleep/wake reconnection only accepts that preferred device.
+Transport failures return to the common preferred-console reconnect state. Frame Tap TCP connection attempts use a bounded timeout, preventing a dead sender from blocking the UI for the operating system's full TCP connect timeout.
 
-The preference is not persisted across app launches yet.
+## Logging
 
-## Rendering
-
-The SDL renderer uses a 1920x1080 logical coordinate space so UI layout is
-stable across TV output modes.
-
-Before NDL playback begins, the UI renderer is cleared to transparent so the
-hardware video plane becomes visible beneath the SDL window.
-
-After the NDL session unloads, the UI is drawn opaque again.
-
-
-## Back-navigation note
-
-On the tested LG TV, the dedicated remote Back key is handled by webOS before
-our SDL layer receives a usable action, which causes the platform close popup.
-Therefore the app currently binds its internal return/cancel behavior to the
-LEFT d-pad direction. The UI still uses a generic return-arrow icon rather than
-a literal keycap label.
-
-
-## RC1 UI assets
-
-Icon PNGs are stored as source artwork but converted ahead of time to raw
-RGBA8888 runtime resources. This avoids adding an SDL2_image dependency to the
-native client while retaining alpha transparency and high-quality scaling.
-
-`app_ui_init()` resolves the executable directory, loads the three runtime
-assets and creates SDL textures. Failure is non-fatal because vector fallbacks
-remain available.
-
-## RC1 robustness review
-
-- discovery parsing uses explicit `|` field splitting;
-- stale-device pruning preserves selection identity by serial/IP;
-- RC builds use a clean CMake directory;
-- the streaming/NDL implementation remains frozen from the validated baseline.
+The app uses a single launch log. Frame Tap adds slow-payload timing, receive-queue depth and TCP state/RTT metrics where the platform exposes them.

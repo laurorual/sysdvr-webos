@@ -26,6 +26,7 @@ typedef struct session_manager {
 
     char preferred_serial[96];
     char preferred_host[64];
+    stream_source preferred_source;
     bool have_preferred;
 } session_manager;
 

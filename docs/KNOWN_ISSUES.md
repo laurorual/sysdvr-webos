@@ -1,15 +1,6 @@
-# Known issues — 1.0.0
+# Known issues
 
-## LG Back key
-
-On the tested LG TV, the dedicated remote-control Back key is intercepted by
-webOS and opens the platform close-app dialog before the application can use it
-as normal SDL navigation.
-
-Use the remote's **Left** directional key for in-app return/cancel.
-
-## Vendor warnings
-
-Some LG NDL/GStreamer/PowerVR warnings can appear in the diagnostic log during
-startup even when streaming works correctly. They are intentionally retained in
-the log because they may be useful when diagnosing behavior on other TV models.
+- LG's dedicated Back button can be intercepted by webOS before SDL receives it. Use **Left** inside the app.
+- Switch Frame Tap is still early software. During development, intermittent stalls and connection drops were reproduced with its official PC client too. The webOS client reconnects automatically, but cannot repair a stalled upstream sender.
+- Switch Frame Tap 1080p decoding is implemented but has not yet been validated on the maintainer's Switch Lite; broader testing requires a dock-capable Switch.
+- Some LG firmware logs harmless NDL/GStreamer warnings such as unsupported OMX properties or failed real-time scheduler requests.

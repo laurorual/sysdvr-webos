@@ -763,7 +763,17 @@ static void device_secondary(
         snprintf(
             out,
             out_size,
-            "%s  |  Manual address",
+            "%s  |  Manual SysDVR address",
+            device->info.host
+        );
+        return;
+    }
+
+    if (device->info.source == STREAM_SOURCE_FRAMETAP) {
+        snprintf(
+            out,
+            out_size,
+            "%s  |  Switch Frame Tap  |  SFTR v2",
             device->info.host
         );
         return;
@@ -919,7 +929,7 @@ void app_ui_render_browser(
             ui,
             ui->small_font,
             scanner_active
-                ? "Make sure SysDVR is running in TCP Bridge mode."
+                ? "Run SysDVR TCP Bridge or Switch Frame Tap Network mode."
                 : "Discovery is unavailable.",
             960,
             573,

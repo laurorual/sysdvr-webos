@@ -8,6 +8,10 @@ static bool same_device(
     const session_device *entry,
     const sysdvr_device *device)
 {
+    if (entry->info.source != device->source) {
+        return false;
+    }
+
     if (entry->info.serial[0] != '\0' &&
         device->serial[0] != '\0') {
         return strcmp(entry->info.serial, device->serial) == 0;
@@ -68,6 +72,7 @@ void session_manager_add_manual(
     session_device *entry = &m->devices[m->count++];
     memset(entry, 0, sizeof(*entry));
 
+    entry->info.source = STREAM_SOURCE_SYSDVR;
     snprintf(entry->info.host, sizeof(entry->info.host), "%s", host);
     snprintf(entry->info.client_version,
              sizeof(entry->info.client_version),
@@ -218,6 +223,7 @@ void session_manager_remember_selected(
         entry->info.serial
     );
 
+    m->preferred_source = entry->info.source;
     m->have_preferred = true;
 
     LOGF(
@@ -231,6 +237,10 @@ bool session_manager_matches_preferred(
     const sysdvr_device *device)
 {
     if (m == NULL || device == NULL || !m->have_preferred) {
+        return false;
+    }
+
+    if (m->preferred_source != device->source) {
         return false;
     }
 

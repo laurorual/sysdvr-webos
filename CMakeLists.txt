@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(sysdvr_webos VERSION 1.0.0 LANGUAGES C)
+project(sysdvr_webos VERSION 1.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -59,6 +59,10 @@ if(SYSDVR_BUILD_WEBOS)
 
     add_executable(sysdvr-webos
         src/webos_main.c
+        src/frametap_backend.c
+        src/sft_audio.c
+        src/sft_discovery.c
+        src/sft_protocol.c
         src/ndl_media.c
         src/sdl_shell.c
         src/ui.c
@@ -79,7 +83,7 @@ if(SYSDVR_BUILD_WEBOS)
     target_compile_definitions(sysdvr-webos PRIVATE
         NDL_DIRECTMEDIA_API_VERSION=2
         _POSIX_C_SOURCE=200809L
-        SYSDVR_APP_VERSION="1.0.0"
+        SYSDVR_APP_VERSION="1.1.0-beta"
     )
 
     target_compile_options(sysdvr-webos PRIVATE

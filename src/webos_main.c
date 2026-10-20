@@ -1,9 +1,11 @@
 #include "sysdvr/discovery.h"
+#include "sft/discovery.h"
 #include "sysdvr/ndl_media.h"
 #include "sysdvr/net.h"
 #include "sysdvr/protocol.h"
 #include "sysdvr/sdl_shell.h"
 #include "sysdvr/session_manager.h"
+#include "sysdvr/stream_backend.h"
 #include "sysdvr/ui.h"
 #include "sysdvr/log.h"
 
@@ -563,13 +565,6 @@ static bool action_is_backish(sdl_shell_action action)
            action == SDL_SHELL_ACTION_LEFT;
 }
 
-typedef enum session_result {
-    SESSION_RESULT_REMOTE_END = 0,
-    SESSION_RESULT_TRANSPORT_LOST = 1,
-    SESSION_RESULT_ERROR = 2,
-    SESSION_RESULT_USER_BACK = 3
-} session_result;
-
 static session_result run_stream_session(
     const session_device *device,
     sdl_shell *shell,
@@ -580,7 +575,7 @@ static session_result run_stream_session(
     uint64_t session_wall_begin = monotonic_us();
 
     LOGF(
-        "[session] starting host=%s serial=%s version=%s protocol=%s\n",
+        "[session] starting backend=SysDVR host=%s serial=%s version=%s protocol=%s\n",
         host,
         device->info.serial[0] ? device->info.serial : "?",
         device->info.client_version[0] ? device->info.client_version : "?",
@@ -628,6 +623,7 @@ static session_result run_stream_session(
 
     int video_buf = sysdvr_set_receive_buffer(video_fd, SOCKET_RCVBUF);
     LOGF("[net] video SO_RCVBUF=%d\n", video_buf);
+    (void)sysdvr_set_receive_timeout(video_fd, SOCKET_RCVTIMEO_MS);
 
     char video_protocol[3];
     uint64_t video_handshake_begin = monotonic_us();
@@ -673,6 +669,7 @@ static session_result run_stream_session(
 
     int audio_buf = sysdvr_set_receive_buffer(audio_fd, SOCKET_RCVBUF);
     LOGF("[net] audio SO_RCVBUF=%d\n", audio_buf);
+    (void)sysdvr_set_receive_timeout(audio_fd, SOCKET_RCVTIMEO_MS);
 
     char audio_protocol[3];
     uint64_t audio_handshake_begin = monotonic_us();
@@ -869,39 +866,62 @@ static uint64_t ui_now_ms(void)
     return (uint64_t)SDL_GetTicks();
 }
 
+static void frametap_device_to_session(
+    const sft_device *source,
+    sysdvr_device *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->source = STREAM_SOURCE_FRAMETAP;
+    snprintf(out->host, sizeof(out->host), "%s", source->host);
+    snprintf(out->client_version, sizeof(out->client_version), "%s", "Frame Tap");
+    snprintf(out->protocol, sizeof(out->protocol), "%s", "SFTR2");
+}
+
 static bool poll_discovery_once(
     sysdvr_discovery *scanner,
+    sft_discovery *sft_scanner,
     session_manager *manager)
 {
-    if (scanner == NULL) {
-        return false;
+    bool ok = true;
+
+    if (scanner != NULL) {
+        for (;;) {
+            sysdvr_device device;
+            int rc = sysdvr_discovery_poll(scanner, 0, &device);
+            if (rc < 0) {
+                ok = false;
+                break;
+            }
+            if (rc == 0) break;
+            session_manager_seen(manager, &device, ui_now_ms());
+        }
     }
 
-    for (;;) {
-        sysdvr_device device;
-        int rc = sysdvr_discovery_poll(scanner, 0, &device);
+    if (sft_scanner != NULL) {
+        for (;;) {
+            sft_device found;
+            int rc = sft_discovery_poll(sft_scanner, 0, &found);
+            if (rc < 0) {
+                ok = false;
+                break;
+            }
+            if (rc == 0) break;
 
-        if (rc < 0) {
-            return false;
+            sysdvr_device device;
+            frametap_device_to_session(&found, &device);
+            session_manager_seen(manager, &device, ui_now_ms());
         }
-
-        if (rc == 0) {
-            return true;
-        }
-
-        session_manager_seen(
-            manager,
-            &device,
-            ui_now_ms()
-        );
     }
+
+    return ok;
 }
 
 static bool browse_for_device(
     sdl_shell *shell,
     app_ui *ui,
     session_manager *manager,
-    sysdvr_discovery *scanner)
+    sysdvr_discovery *scanner,
+    sft_discovery *sft_scanner)
 {
     uint32_t last_render = 0;
 
@@ -913,7 +933,7 @@ static bool browse_for_device(
             return false;
         }
 
-        if (!poll_discovery_once(scanner, manager)) {
+        if (!poll_discovery_once(scanner, sft_scanner, manager)) {
             LOGF( "[discovery] scanner error\n");
         }
 
@@ -940,7 +960,7 @@ static bool browse_for_device(
             app_ui_render_browser(
                 ui,
                 manager,
-                scanner != NULL
+                scanner != NULL || sft_scanner != NULL
             );
             last_render = now;
         }
@@ -956,6 +976,7 @@ static bool wait_for_preferred_console(
     app_ui *ui,
     session_manager *manager,
     sysdvr_discovery *scanner,
+    sft_discovery *sft_scanner,
     session_device *out_device)
 {
     uint32_t last_render = 0;
@@ -978,28 +999,33 @@ static bool wait_for_preferred_console(
             for (;;) {
                 sysdvr_device found;
                 int rc = sysdvr_discovery_poll(scanner, 0, &found);
+                if (rc <= 0) break;
 
-                if (rc <= 0) {
-                    break;
-                }
-
-                session_manager_seen(
-                    manager,
-                    &found,
-                    ui_now_ms()
-                );
-
-                if (session_manager_matches_preferred(
-                        manager,
-                        &found)) {
+                session_manager_seen(manager, &found, ui_now_ms());
+                if (session_manager_matches_preferred(manager, &found)) {
                     memset(out_device, 0, sizeof(*out_device));
                     out_device->info = found;
                     out_device->last_seen_ms = ui_now_ms();
+                    LOGF("[reconnect] preferred SysDVR console returned at %s\n", found.host);
+                    return true;
+                }
+            }
+        }
 
-                    LOGF(
-                            "[reconnect] preferred console returned at %s\n",
-                            found.host);
+        if (sft_scanner != NULL) {
+            for (;;) {
+                sft_device raw;
+                int rc = sft_discovery_poll(sft_scanner, 0, &raw);
+                if (rc <= 0) break;
 
+                sysdvr_device found;
+                frametap_device_to_session(&raw, &found);
+                session_manager_seen(manager, &found, ui_now_ms());
+                if (session_manager_matches_preferred(manager, &found)) {
+                    memset(out_device, 0, sizeof(*out_device));
+                    out_device->info = found;
+                    out_device->last_seen_ms = ui_now_ms();
+                    LOGF("[reconnect] preferred Frame Tap console returned at %s\n", found.host);
                     return true;
                 }
             }
@@ -1099,8 +1125,7 @@ int main(int argc, char **argv)
 
     LOGF("=== sysdvr-webos %s launch ===\n", SYSDVR_APP_VERSION);
     LOGF(
-        "[main] pid=%ld target=H264 1280x720 + PCM S16LE stereo 48000Hz "
-        "audio_batching=%d\n",
+        "[main] pid=%ld backends=SysDVR+SwitchFrameTap audio_batching=%d\n",
         (long)getpid(),
         AUDIO_BATCHING
     );
@@ -1161,12 +1186,17 @@ int main(int argc, char **argv)
         );
     }
 
-    sysdvr_discovery *scanner =
-        sysdvr_discovery_open();
+    sysdvr_discovery *scanner = sysdvr_discovery_open();
+    sft_discovery *sft_scanner = sft_discovery_open();
 
     if (scanner == NULL) {
-        LOGF(
-                "[discovery] unavailable; manual host entries only\n");
+        LOGF("[discovery] SysDVR discovery unavailable\n");
+    }
+    if (sft_scanner == NULL) {
+        LOGF("[sft-discovery] Frame Tap discovery unavailable\n");
+    }
+    if (scanner == NULL && sft_scanner == NULL) {
+        LOGF("[discovery] all discovery unavailable; manual SysDVR entries only\n");
     }
 
     LOGF(
@@ -1177,7 +1207,8 @@ int main(int argc, char **argv)
                 &shell,
                 &ui,
                 &manager,
-                scanner)) {
+                scanner,
+                sft_scanner)) {
             break;
         }
 
@@ -1191,7 +1222,8 @@ int main(int argc, char **argv)
         session_device target = *selected;
 
         LOGF(
-                "[session] user selected host=%s serial=%s\n",
+                "[session] user selected backend=%s host=%s serial=%s\n",
+                target.info.source == STREAM_SOURCE_FRAMETAP ? "FrameTap" : "SysDVR",
                 target.info.host,
                 target.info.serial[0]
                     ? target.info.serial
@@ -1200,18 +1232,19 @@ int main(int argc, char **argv)
         app_ui_render_connecting(
             &ui,
             &target,
-            "Connecting to Nintendo Switch..."
+            target.info.source == STREAM_SOURCE_FRAMETAP
+                ? "Connecting to Switch Frame Tap..."
+                : "Connecting to SysDVR..."
         );
 
         SDL_Delay(180);
 
         session_result result =
-            run_stream_session(
-                &target,
-                &shell,
-                &ui,
-                app_id
-            );
+            target.info.source == STREAM_SOURCE_FRAMETAP
+                ? frametap_run_stream_session(
+                    &target, &shell, &ui, app_id, &g_signal_stop)
+                : run_stream_session(
+                    &target, &shell, &ui, app_id);
 
         if (g_signal_stop) {
             break;
@@ -1223,7 +1256,7 @@ int main(int argc, char **argv)
             app_ui_render_browser(
                 &ui,
                 &manager,
-                scanner != NULL
+                scanner != NULL || sft_scanner != NULL
             );
             continue;
         }
@@ -1233,7 +1266,7 @@ int main(int argc, char **argv)
                 &shell,
                 &ui,
                 "Could not start the stream",
-                "Check SysDVR and the network connection."
+                "Check the selected Switch streaming server and network connection."
             );
 
             continue;
@@ -1257,6 +1290,7 @@ int main(int argc, char **argv)
                 &ui,
                 &manager,
                 scanner,
+                sft_scanner,
                 &returned)) {
             /*
              * Refresh the registry entry first. Then select the matching item
@@ -1277,18 +1311,19 @@ int main(int argc, char **argv)
                 app_ui_render_connecting(
                     &ui,
                     &reconnect_target,
-                    "Reconnecting to Nintendo Switch..."
+                    reconnect_target.info.source == STREAM_SOURCE_FRAMETAP
+                        ? "Reconnecting to Switch Frame Tap..."
+                        : "Reconnecting to SysDVR..."
                 );
 
                 SDL_Delay(180);
 
                 session_result reconnect_result =
-                    run_stream_session(
-                        &reconnect_target,
-                        &shell,
-                        &ui,
-                        app_id
-                    );
+                    reconnect_target.info.source == STREAM_SOURCE_FRAMETAP
+                        ? frametap_run_stream_session(
+                            &reconnect_target, &shell, &ui, app_id, &g_signal_stop)
+                        : run_stream_session(
+                            &reconnect_target, &shell, &ui, app_id);
 
                 if (g_signal_stop) {
                     break;
@@ -1320,6 +1355,7 @@ int main(int argc, char **argv)
                         &ui,
                         &manager,
                         scanner,
+                        sft_scanner,
                         &reconnect_target)) {
                     break;
                 }
@@ -1329,12 +1365,15 @@ int main(int argc, char **argv)
         app_ui_render_browser(
             &ui,
             &manager,
-            scanner != NULL
+            scanner != NULL || sft_scanner != NULL
         );
     }
 
     if (scanner != NULL) {
         sysdvr_discovery_close(scanner);
+    }
+    if (sft_scanner != NULL) {
+        sft_discovery_close(sft_scanner);
     }
 
     app_ui_destroy(&ui);

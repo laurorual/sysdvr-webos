@@ -41,9 +41,25 @@ chmod +x "$PKG/sysdvr-webos"
 
 if command -v ares-package >/dev/null 2>&1; then
   rm -f "$DIST"/*.ipk
-  ares-package -A arm "$PKG" -o "$DIST"
+  if ! ares-package -A arm "$PKG" -o "$DIST"; then
+    echo "ares-package does not support -A; retrying without an architecture flag"
+    rm -f "$DIST"/*.ipk
+    ares-package "$PKG" -o "$DIST"
+  fi
+
+  IPK="$(find "$DIST" -maxdepth 1 -type f -name '*.ipk' | head -n 1)"
+  if [[ -z "$IPK" ]]; then
+    echo "ares-package completed but no IPK was produced"
+    exit 1
+  fi
+
+  EXPECTED="$DIST/io.github.sysdvrwebos.client_1.1.0_arm.ipk"
+  if [[ "$IPK" != "$EXPECTED" ]]; then
+    mv "$IPK" "$EXPECTED"
+  fi
+
   echo
-  echo "IPK created under $DIST"
+  echo "IPK created: $EXPECTED"
 else
   echo
   echo "Built OK. ares-package not found; staged package is in $PKG"
