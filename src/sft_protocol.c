@@ -120,15 +120,18 @@ static ssize_t read_exact_interruptible(
 {
     uint8_t *p = (uint8_t *)buffer;
     size_t done = 0;
-    uint64_t deadline_us = 0;
+    uint64_t progress_deadline_us = 0;
 
     while (done < size) {
         if (running != NULL && !atomic_load(running)) return 0;
 
         if (!idle_allowed || done > 0) {
-            if (deadline_us == 0) deadline_us = monotonic_us() + 5000000ULL;
-            if (monotonic_us() >= deadline_us) {
-                LOGF("[sft-net] incomplete read timeout got=%zu expected=%zu\n", done, size);
+            if (progress_deadline_us == 0) {
+                progress_deadline_us = monotonic_us() + 3000000ULL;
+            }
+            if (monotonic_us() >= progress_deadline_us) {
+                LOGF("[sft-net] stalled read timeout got=%zu expected=%zu idle_for=3.0s\n",
+                     done, size);
                 return -1;
             }
         }
@@ -152,8 +155,11 @@ static ssize_t read_exact_interruptible(
                  errno, strerror(errno), done, size);
             return -1;
         }
-        if (done == 0 && idle_allowed) deadline_us = monotonic_us() + 5000000ULL;
         done += (size_t)n;
+        /* Timeout means no forward progress, not merely a slow large packet.
+         * Every successful recv extends the deadline, so a congested stream
+         * can keep flowing while a truly wedged sender reconnects quickly. */
+        progress_deadline_us = monotonic_us() + 3000000ULL;
     }
 
     return (ssize_t)done;
