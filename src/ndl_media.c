@@ -35,10 +35,12 @@ static uint64_t monotonic_us(void)
            (uint64_t)ts.tv_nsec / 1000ULL;
 }
 
+#if !defined(SYSDVR_NDL_INIT_ONE_ARG)
 static void resource_released(const char *type)
 {
-    LOGF( "[ndl] resource released: %s\n", type ? type : "?");
+    LOGF("[ndl] resource released: %s\n", type ? type : "?");
 }
+#endif
 
 static void media_event(int type, long long value, const char *text)
 {
@@ -58,8 +60,12 @@ ndl_media *ndl_media_create(const char *app_id)
         return NULL;
     }
 
+#if defined(SYSDVR_NDL_INIT_ONE_ARG)
+    if (NDL_DirectMediaInit(app_id) != 0) {
+#else
     if (NDL_DirectMediaInit(app_id, resource_released) != 0) {
-        LOGF( "[ndl] init failed: %s\n", NDL_DirectMediaGetError());
+#endif
+        LOGF("[ndl] init failed: %s\n", NDL_DirectMediaGetError());
         pthread_mutex_destroy(&p->feed_lock);
         free(p);
         return NULL;
