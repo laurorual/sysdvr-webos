@@ -166,6 +166,7 @@ if(SYSDVR_BUILD_WEBOS)
         ${SDL2_TTF_LIBRARY}
         ${NDL_LIBRARIES}
         pthread
+        rt
         m
     )
 
