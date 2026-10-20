@@ -1,0 +1,15 @@
+{
+  "id": "io.github.sysdvrwebos.client",
+  "version": "1.1.0",
+  "type": "native",
+  "title": "SysDVR",
+  "appDescription": "Native Nintendo Switch streaming client for LG webOS TVs with SysDVR and Switch Frame Tap support",
+  "iconUri": "https://raw.githubusercontent.com/laurorual/sysdvr-webos/main/webos/icon.png",
+  "sourceUrl": "https://github.com/laurorual/sysdvr-webos",
+  "rootRequired": false,
+  "ipkUrl": "https://github.com/laurorual/sysdvr-webos/releases/download/v1.1.0/io.github.sysdvrwebos.client_1.1.0_arm.ipk",
+  "ipkHash": {
+    "sha256": "820a5d9b10421c41b8419d405d14d8e0f8c86d82aa503910f0eacaf43db5ab12"
+  },
+  "ipkSize": 64602
+}
