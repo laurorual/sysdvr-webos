@@ -45,8 +45,9 @@ int sft_validate_header(const sft_packet_header *header);
 
 /*
  * Read one packet while periodically checking `running`.
- * Idle between headers may last indefinitely. Once a header starts, and for
- * the payload, an incomplete packet has a 5 second deadline.
+ * Idle between headers may last indefinitely. Once a header/payload starts,
+ * the read fails only after 3 seconds without forward progress. Successful
+ * partial reads extend the deadline so large congested frames can still finish.
  *
  * Returns:
  *   1 packet read
