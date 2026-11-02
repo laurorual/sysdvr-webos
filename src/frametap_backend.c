@@ -61,6 +61,8 @@ typedef struct sft_worker {
     uint64_t ndl_retries;
     uint64_t ndl_failures;
     uint64_t max_wall_gap_us;
+    pthread_mutex_t status_lock;
+    char status_head[128];
 } sft_worker;
 
 static bool submit_video(
@@ -89,7 +91,7 @@ static bool submit_video(
     return false;
 }
 
-static void log_status_packet(const uint8_t *payload, size_t size)
+static void log_status_packet(sft_worker *w, const uint8_t *payload, size_t size)
 {
     if (size < 8) {
         LOGF("[sft-status] packet size=%zu\n", size);
@@ -101,13 +103,25 @@ static void log_status_packet(const uint8_t *payload, size_t size)
                       ((uint32_t)payload[6] << 16) |
                       ((uint32_t)payload[7] << 24);
     char head[65] = {0};
+    char detail[121] = {0};
     if (size > 8) {
         size_t n = size - 8;
         if (n > 64) n = 64;
         memcpy(head, payload + 8, n);
-        head[64] = '\0';
     }
-    LOGF("[sft-status] reason=%u head=%s\n", reason, head[0] ? head : "<none>");
+    if (size > 72) {
+        size_t n = size - 72;
+        if (n > 120) n = 120;
+        memcpy(detail, payload + 72, n);
+    }
+    LOGF("[sft-status] reason=%u head=%s detail=%s\n",
+         reason, head[0] ? head : "<none>", detail[0] ? detail : "<none>");
+    /* Update the waiting screen on the UI thread; the stream thread never
+     * calls SDL rendering functions. */
+    pthread_mutex_lock(&w->status_lock);
+    snprintf(w->status_head, sizeof(w->status_head), "%s",
+             reason && head[0] ? head : "Connected. Open a game on the Switch...");
+    pthread_mutex_unlock(&w->status_lock);
 }
 
 static void *sft_stream_thread(void *opaque)
@@ -127,6 +141,9 @@ static void *sft_stream_thread(void *opaque)
     uint64_t last_key_request = 0;
     uint64_t last_stats_wall = monotonic_us();
     uint64_t last_stats_bytes = 0;
+    bool last_input_on = false;
+    bool input_flag_reported = false;
+    bool unexpected_crop_reported = false;
 
     if (payload == NULL) {
         LOGF("[sft] payload allocation failed\n");
@@ -159,9 +176,27 @@ static void *sft_stream_thread(void *opaque)
 
         ++w->packets;
 
+        /* 0.7.20 adds INPUT=0x80 when viewer controls are enabled. It is
+         * informational, not a new packet type; accept it even though this
+         * version is video/audio-only and does not send SFTI commands. */
+        if (!sft_packet_is_audio(&h) || sft_packet_is_status(&h)) {
+            bool input_on = (h.raw_flags & SFT_FLAG_INPUT) != 0u;
+            if (!input_flag_reported || input_on != last_input_on) {
+                LOGF("[sft-proto] console viewer-input=%s (control sending not implemented)\n",
+                     input_on ? "enabled" : "disabled");
+                last_input_on = input_on;
+                input_flag_reported = true;
+            }
+        }
+        if ((h.flags & (SFT_FLAG_CROP | SFT_FLAG_CROP_MID)) != 0u &&
+            !unexpected_crop_reported) {
+            LOGF("[sft-proto] received crop metadata without SFTC opt-in; displaying encoded H264 picture as-is\n");
+            unexpected_crop_reported = true;
+        }
+
         if (sft_packet_is_status(&h)) {
             ++w->status_packets;
-            log_status_packet(payload, size);
+            log_status_packet(w, payload, size);
             continue;
         }
 
@@ -391,10 +426,18 @@ session_result frametap_run_stream_session(
     atomic_init(&worker.video_started, false);
     atomic_init(&worker.failed, false);
     atomic_init(&worker.finished, false);
+    if (pthread_mutex_init(&worker.status_lock, NULL) != 0) {
+        LOGF("[sft-session] failed to initialize status mutex\n");
+        close(fd);
+        return SESSION_RESULT_ERROR;
+    }
+    snprintf(worker.status_head, sizeof(worker.status_head),
+             "Connected. Open a game on the Switch...");
 
     pthread_t thread;
     if (pthread_create(&thread, NULL, sft_stream_thread, &worker) != 0) {
         LOGF("[sft-session] failed to create stream thread\n");
+        pthread_mutex_destroy(&worker.status_lock);
         close(fd);
         return SESSION_RESULT_ERROR;
     }
@@ -423,7 +466,11 @@ session_result frametap_run_stream_session(
         } else if (!ui_cleared && atomic_load(&worker.connected)) {
             uint32_t now = SDL_GetTicks();
             if (now - last_wait_render >= 500u) {
-                app_ui_render_connecting(ui, device, "Connected. Open a game on the Switch...");
+                char status[128];
+                pthread_mutex_lock(&worker.status_lock);
+                snprintf(status, sizeof(status), "%s", worker.status_head);
+                pthread_mutex_unlock(&worker.status_lock);
+                app_ui_render_connecting(ui, device, status);
                 last_wait_render = now;
             }
         }
@@ -435,6 +482,7 @@ session_result frametap_run_stream_session(
     shutdown(fd, SHUT_RDWR);
     pthread_join(thread, NULL);
     close(fd);
+    pthread_mutex_destroy(&worker.status_lock);
 
     if (user_back) return SESSION_RESULT_USER_BACK;
     if (global_stop && *global_stop) return SESSION_RESULT_REMOTE_END;

@@ -33,7 +33,10 @@ Both backends use the LG hardware H.264 decoder through NDL DirectMedia. Switch 
 ### Switch Frame Tap backend (beta)
 
 - Uses UDP 9951 discovery + TCP 9950 streaming
-- SFTR v2 parser
+- SFTR v2 parser (compatible with Switch Frame Tap v0.7.20 and older SFTR v2 releases)
+- accepts v0.7.20 controller-capability flags without dropping the stream (sending inputs is not implemented)
+- accepts the v0.7.16 crop flags; does not opt into client-side cropping (`SFTC`), so the Switch scales/crops for the viewer
+- reports upstream status messages (e.g., no game, keyboard open, unsupported game) on the waiting screen
 - H.264 IDR/P-frame recovery with fresh-keyframe requests (`SFTK`)
 - dynamic 720p/1080p decoder reconfiguration
 - PCM S16LE stereo 48 kHz through SDL audio
@@ -151,7 +154,16 @@ stops.
 
 ## Release status
 
-**v1.1.0 is a beta release** because Switch Frame Tap support is new and the
+The v1.1.1 compatibility update accepts new SFTR v2 header flags used by
+Switch Frame Tap v0.7.20, and displays descriptive waiting-status messages.
+The TV client remains a passive viewer: enable/disable viewer controls in
+the Switch app if desired, but webOS does not currently transmit gamepad
+commands. Switch Frame Tap v0.7.20.1-beta1 adds console-side picture fixes
+and does not require a separate protocol change here.
+
+
+
+**v1.1.1 is a beta release** because Switch Frame Tap support is new and the
 upstream sysmodule is still evolving. SysDVR remains the mature/stable backend.
 
 ## Credits

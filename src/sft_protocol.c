@@ -35,7 +35,8 @@ int sft_parse_header(const uint8_t raw[SFT_HEADER_SIZE], sft_packet_header *out)
     if (raw == NULL || out == NULL) return -1;
     out->magic = le32(raw + 0);
     out->version = le16(raw + 4);
-    out->flags = le16(raw + 6);
+    out->raw_flags = le16(raw + 6);
+    out->flags = out->raw_flags & (uint16_t)~SFT_FLAG_INPUT;
     out->width = le32(raw + 8);
     out->height = le32(raw + 12);
     out->console_age_us = le32(raw + 16);
@@ -68,7 +69,8 @@ int sft_validate_header(const sft_packet_header *h)
 {
     if (h == NULL) return -1;
     if (h->magic != SFT_MAGIC || h->version != SFT_PROTOCOL_VERSION) return -1;
-    if ((h->flags & ~(SFT_FLAG_VIDEO | SFT_FLAG_KEY | SFT_FLAG_AUDIO | SFT_FLAG_STATUS)) != 0u) return -1;
+    if ((h->flags & ~(SFT_FLAG_VIDEO | SFT_FLAG_KEY | SFT_FLAG_AUDIO | SFT_FLAG_STATUS |
+                       SFT_FLAG_CROP | SFT_FLAG_CROP_MID)) != 0u) return -1;
 
     if (sft_packet_is_status(h)) {
         if (h->flags != (SFT_FLAG_AUDIO | SFT_FLAG_STATUS) ||
@@ -85,6 +87,8 @@ int sft_validate_header(const sft_packet_header *h)
     }
 
     if (sft_packet_is_video(h)) {
+        /* CROP/CROP_MID may accompany video, but never audio/status. */
+        if ((h->flags & ~(SFT_FLAG_VIDEO | SFT_FLAG_KEY | SFT_FLAG_CROP | SFT_FLAG_CROP_MID)) != 0u) return -1;
         if (h->width < 16u || h->width > 1920u ||
             h->height < 16u || h->height > 1088u ||
             (h->width & 1u) != 0u || (h->height & 1u) != 0u ||

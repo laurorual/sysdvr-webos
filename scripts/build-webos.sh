@@ -53,7 +53,8 @@ if command -v ares-package >/dev/null 2>&1; then
     exit 1
   fi
 
-  EXPECTED="$DIST/io.github.sysdvrwebos.client_1.1.0_arm.ipk"
+  PACKAGE_VERSION="$(tr -d '\r\n' < "$ROOT/VERSION")"
+  EXPECTED="$DIST/io.github.sysdvrwebos.client_${PACKAGE_VERSION}_arm.ipk"
   if [[ "$IPK" != "$EXPECTED" ]]; then
     mv "$IPK" "$EXPECTED"
   fi

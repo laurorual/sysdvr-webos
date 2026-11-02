@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(sysdvr_webos VERSION 1.1.0 LANGUAGES C)
+project(sysdvr_webos VERSION 1.1.1 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -32,8 +32,13 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(SYSDVR_BUILD_HOST_TEST)
+    enable_testing()
     add_executable(sysdvr-net-test tools/net_test.c)
     target_link_libraries(sysdvr-net-test PRIVATE sysdvr_core)
+    add_executable(sft-protocol-test tools/sft_protocol_test.c src/sft_protocol.c)
+    target_link_libraries(sft-protocol-test PRIVATE sysdvr_core rt)
+    target_compile_definitions(sft-protocol-test PRIVATE _POSIX_C_SOURCE=200809L)
+    add_test(NAME sftr-v2-compat COMMAND sft-protocol-test)
 endif()
 
 if(SYSDVR_BUILD_WEBOS)
@@ -139,7 +144,7 @@ if(SYSDVR_BUILD_WEBOS)
     target_compile_definitions(sysdvr-webos PRIVATE
         NDL_DIRECTMEDIA_API_VERSION=2
         _POSIX_C_SOURCE=200809L
-        SYSDVR_APP_VERSION="1.1.0-beta"
+        SYSDVR_APP_VERSION="${PROJECT_VERSION}-beta"
     )
 
     if(SYSDVR_NDL_INIT_ONE_ARG)

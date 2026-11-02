@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 APP_ID = "io.github.sysdvrwebos.client"
-VERSION = "1.1.0"
+VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text(encoding="utf-8").strip()
 TITLE = "SysDVR"
 DESCRIPTION = "Native Nintendo Switch streaming client for LG webOS TVs with SysDVR and Switch Frame Tap support"
 
@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("--source-url", required=True,
                     help="GitHub repository URL, e.g. https://github.com/user/repo")
-parser.add_argument("--tag", default="v1.1.0")
+parser.add_argument("--tag", default=f"v{VERSION}")
 parser.add_argument("--ipk", help="Path to built arm IPK; defaults to dist/*_arm.ipk")
 parser.add_argument("--icon-url", help="Public icon URL; defaults to raw GitHub main/webos/icon.png")
 parser.add_argument("--output", default=f"dist/{APP_ID}.manifest.json")

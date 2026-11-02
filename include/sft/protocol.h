@@ -21,11 +21,17 @@ extern "C" {
 #define SFT_FLAG_KEY    0x04u
 #define SFT_FLAG_AUDIO  0x08u
 #define SFT_FLAG_STATUS 0x10u
+/* v0.7.16: optional source crop metadata, only sent after SFTC opt-in. */
+#define SFT_FLAG_CROP      0x20u
+#define SFT_FLAG_CROP_MID  0x40u
+/* v0.7.20: console allows remote controller input (SFTI). We do not send it. */
+#define SFT_FLAG_INPUT     0x80u
 
 typedef struct sft_packet_header {
     uint32_t magic;
     uint16_t version;
-    uint16_t flags;
+    uint16_t flags;       /* video/audio/status flags with INPUT removed */
+    uint16_t raw_flags;   /* original on-wire flags; INPUT is informational */
     uint32_t width;
     uint32_t height;
     uint32_t console_age_us;
@@ -34,7 +40,10 @@ typedef struct sft_packet_header {
     uint32_t sequence;
 } sft_packet_header;
 
-/* Parse a 32-byte SFTR v2 header. Returns 0 on success. */
+/* Parse a 32-byte SFTR v2 header. INPUT is a capability signal, never a
+ * packet-type flag. Preserve it in raw_flags, remove it from flags. We
+ * deliberately do not send SFTC, so the console renders crops itself. */
+
 int sft_parse_header(
     const uint8_t raw[SFT_HEADER_SIZE],
     sft_packet_header *out
