@@ -89,7 +89,7 @@ jobs:
         run: |
           if gh release view v${APP_VERSION} >/dev/null 2>&1; then
             gh release upload v${APP_VERSION} \
-              dist/io.github.sysdvrwebos.client_1.1.0_arm.ipk \
+              "dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
               io.github.sysdvrwebos.client.manifest.json \
               --clobber
             gh release edit v${APP_VERSION} \
@@ -97,7 +97,7 @@ jobs:
               --notes-file RELEASE_NOTES_v${APP_VERSION}.md
           else
             gh release create v${APP_VERSION} \
-              dist/io.github.sysdvrwebos.client_1.1.0_arm.ipk \
+              "dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
               io.github.sysdvrwebos.client.manifest.json \
               --target main \
               --title "v${APP_VERSION} beta" \
