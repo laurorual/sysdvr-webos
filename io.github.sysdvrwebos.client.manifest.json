@@ -9,7 +9,7 @@
   "rootRequired": false,
   "ipkUrl": "https://github.com/laurorual/sysdvr-webos/releases/download/v1.1.1/io.github.sysdvrwebos.client_1.1.1_arm.ipk",
   "ipkHash": {
-    "sha256": "10827d77f64101d1bcefae6e4d552f8df2f65fc12474fb19d4956851d60ee402"
+    "sha256": "045555a6cd7cc019628f98da4f6a4427b626b12f7d28c987514a8d62221d2a8e"
   },
-  "ipkSize": 65086
+  "ipkSize": 65090
 }
