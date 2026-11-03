@@ -1,7 +1,7 @@
 # Portable SysDVR WebOS Log Collector
 
 Retrieve the latest SysDVR WebOS diagnostic log from an LG TV using
-**Developer Mode SSH**, with no Node.js, webOS SDK, or \`ares-shell\` needed.
+**Developer Mode SSH**, with no Node.js, webOS SDK, or `ares-shell` needed.
 
 ## Requirements
 
@@ -11,12 +11,12 @@ Retrieve the latest SysDVR WebOS diagnostic log from an LG TV using
 
 Start from the repository root:
 
-\`\`\`bash
+```bash
 python3 tools/log-collector/get_sysdvr_log.py
-\`\`\`
+```
 
-Or start \`run_windows.bat\`, \`run_linux.sh\` or \`run_mac.command\` in
-this directory. On Windows, \`py -3 get_sysdvr_log.py\` also works.
+Or start `run_windows.bat`, `run_linux.sh` or `run_mac.command` in
+this directory. On Windows, `py -3 get_sysdvr_log.py` also works.
 
 ## First use
 
@@ -32,7 +32,7 @@ this directory. On Windows, \`py -3 get_sysdvr_log.py\` also works.
 ## Remembered TVs
 
 After a **successful download**, the TV name and IP are stored in
-\`log_DATA/tvs.json\`. Next time, the last-used TV is offered as choice
+`log_DATA/tvs.json`. Next time, the last-used TV is offered as choice
 **1** (press Enter). Choose **S** to search again or **M** for a manual IP.
 Multiple saved TVs are supported.
 
@@ -42,14 +42,14 @@ IP, select S to find the new address; Key Server may need to be enabled again.
 
 ## Files and security
 
-- \`sysdvr-webos_*.log\`: downloaded logs, in the script directory
-- \`log_DATA/tvs.json\`: saved TV names and IPs
-- \`log_DATA/keys\`: **sensitive** encrypted SSH private keys
-- \`log_DATA/known_hosts\`: trusted SSH host identities
-- \`log_DATA/vendor\`: locally installed Python dependencies
+- `sysdvr-webos_*.log`: downloaded logs, in the script directory
+- `log_DATA/tvs.json`: saved TV names and IPs
+- `log_DATA/keys`: **sensitive** encrypted SSH private keys
+- `log_DATA/known_hosts`: trusted SSH host identities
+- `log_DATA/vendor`: locally installed Python dependencies
 
-**Never share \`log_DATA\`!** Only send the resulting \`.log\` file to
-maintainers. \`log_DATA\` and downloaded logs are Git-ignored.
+**Never share `log_DATA`!** Only send the resulting `.log` file to
+maintainers. `log_DATA` and downloaded logs are Git-ignored.
 
 The app's log is replaced at each launch and capped at **60 minutes / 4 MiB**;
 launch the app and reproduce the issue before fetching the log.
