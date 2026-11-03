@@ -1,0 +1,40 @@
+name: Log Collector Checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/log-collector/**'
+  pull_request:
+    paths:
+      - 'tools/log-collector/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collector-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
+      - name: Compile Python
+        run: python -m py_compile tools/log-collector/get_sysdvr_log.py
+
+      - name: Run offline unit tests
+        run: python -m unittest discover -s tools/log-collector/tests -v
+
+      - name: Validate Unix launchers
+        if: runner.os != 'Windows'
+        run: sh -n tools/log-collector/run_linux.sh tools/log-collector/run_mac.command
