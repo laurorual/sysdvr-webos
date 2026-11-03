@@ -25,4 +25,4 @@ ares-launch -d "${DEVICE}" "${APP_ID}" -p "${PARAMS}"
 echo
 echo "Launched SysDVR."
 echo "Diagnostic log:"
-echo "  ./scripts/show-log.sh ${DEVICE}"
+echo "  python3 tools/log-collector/get_sysdvr_log.py"

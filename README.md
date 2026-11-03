@@ -115,42 +115,34 @@ A manual SysDVR IP can optionally be supplied:
 
 Normally this is unnecessary because the app discovers supported servers automatically.
 
-## Diagnostic log
+## Diagnostic logs
 
-```bash
-./scripts/show-log.sh tv
-```
+Use the portable **[SysDVR WebOS Log Collector](tools/log-collector/README.md)**
+for **Windows, macOS, and Linux**. It automatically discovers LG TVs on the
+network (or accepts a manual IP), prepares portable SSH dependencies, and
+downloads the last app-launch log. **Node.js and the webOS SDK are not needed.**
 
-To save the whole log instead of printing it in the terminal:
+**Python 3.9+ required.** From the repository root:
 
-```bash
-./scripts/show-log.sh tv > sysdvr-webos.log
-```
+\`\`\`bash
+python3 tools/log-collector/get_sysdvr_log.py
+\`\`\`
 
-The app keeps **one log file only**:
+On Windows, run \`tools/log-collector/run_windows.bat\`; on Linux run
+\`tools/log-collector/run_linux.sh\`; on macOS run
+\`tools/log-collector/run_mac.command\`.
 
-```text
-sysdvr-webos.log
-```
+At first use, enable **Key Server** in the TV's **Developer Mode** app if
+prompted; enter its six-character passphrase and verify the SSH fingerprint.
+The encrypted key is saved locally for reuse. **After a successful download,
+the TV name/IP are remembered**, so pressing Enter selects the last used TV
+on subsequent runs. Choose S to search again or M to type a new IP.
 
-It is replaced on every app launch and contains timestamped information about:
-
-- application/session state and selected backend
-- discovered SysDVR and Switch Frame Tap servers
-- remote-control inputs
-- TCP connection/handshake timing
-- audio/video packet progress
-- SysDVR A/V timestamps
-- Frame Tap sequence/keyframe recovery
-- network gaps and slow payload reads
-- receive-queue/TCP transport diagnostics when available
-- DirectMedia backpressure/timing
-- reconnects and session shutdowns
-- relevant webOS/GStreamer/NDL warnings
-
-To avoid unnecessary storage use, persistent capture stops after **60 minutes**
-or **4 MiB**, whichever comes first. Streaming continues normally after logging
-stops.
+The log is written as a timestamped \`sysdvr-webos_*.log\` in the collector
+directory. Share only this \`.log\` file when reporting an issue. **Never share
+\`log_DATA\`**, because it contains SSH credentials. The app maintains one
+log file, replaced on each launch, with a capture limit of **60 minutes or
+4 MiB**. A new app release is not required to use the collector.
 
 ## Release status
 

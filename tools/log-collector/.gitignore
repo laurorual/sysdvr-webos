@@ -1,0 +1,5 @@
+/log_DATA/
+*.log
+*.part
+__pycache__/
+*.pyc
