@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths-ignore:
       - io.github.sysdvrwebos.client.manifest.json
+      - README.md
+      - docs/**
+      - tools/log-collector/**
+      - scripts/launch-test.sh
+      - .github/workflows/log-collector-tests.yml
   workflow_dispatch:
 
 permissions:
