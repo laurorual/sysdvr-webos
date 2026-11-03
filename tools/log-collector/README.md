@@ -62,5 +62,6 @@ From the repository root, run the offline test suite without a TV or Paramiko:
 python -m unittest discover -s tools/log-collector/tests -v
 ```
 
-The dedicated GitHub Actions workflow checks Python 3.9 and these tests on
-Linux, macOS, and Windows. Collector-only changes do not trigger app releases.
+The dedicated GitHub Actions workflow runs offline checks on Linux (Python
+3.9), macOS (Python 3.11), and Windows (Python 3.11). Collector-only changes
+do not trigger app releases.
