@@ -124,13 +124,13 @@ downloads the last app-launch log. **Node.js and the webOS SDK are not needed.**
 
 **Python 3.9+ required.** From the repository root:
 
-\`\`\`bash
+```bash
 python3 tools/log-collector/get_sysdvr_log.py
-\`\`\`
+```
 
-On Windows, run \`tools/log-collector/run_windows.bat\`; on Linux run
-\`tools/log-collector/run_linux.sh\`; on macOS run
-\`tools/log-collector/run_mac.command\`.
+On Windows, run `tools/log-collector/run_windows.bat`; on Linux run
+`tools/log-collector/run_linux.sh`; on macOS run
+`tools/log-collector/run_mac.command`.
 
 At first use, enable **Key Server** in the TV's **Developer Mode** app if
 prompted; enter its six-character passphrase and verify the SSH fingerprint.
@@ -138,9 +138,9 @@ The encrypted key is saved locally for reuse. **After a successful download,
 the TV name/IP are remembered**, so pressing Enter selects the last used TV
 on subsequent runs. Choose S to search again or M to type a new IP.
 
-The log is written as a timestamped \`sysdvr-webos_*.log\` in the collector
-directory. Share only this \`.log\` file when reporting an issue. **Never share
-\`log_DATA\`**, because it contains SSH credentials. The app maintains one
+The log is written as a timestamped `sysdvr-webos_*.log` in the collector
+directory. Share only this `.log` file when reporting an issue. **Never share
+`log_DATA`**, because it contains SSH credentials. The app maintains one
 log file, replaced on each launch, with a capture limit of **60 minutes or
 4 MiB**. A new app release is not required to use the collector.
 
