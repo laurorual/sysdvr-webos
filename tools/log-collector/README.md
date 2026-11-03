@@ -53,3 +53,14 @@ maintainers. `log_DATA` and downloaded logs are Git-ignored.
 
 The app's log is replaced at each launch and capped at **60 minutes / 4 MiB**;
 launch the app and reproduce the issue before fetching the log.
+
+## Contributor tests
+
+From the repository root, run the offline test suite without a TV or Paramiko:
+
+```bash
+python -m unittest discover -s tools/log-collector/tests -v
+```
+
+The dedicated GitHub Actions workflow checks Python 3.9 and these tests on
+Linux, macOS, and Windows. Collector-only changes do not trigger app releases.
