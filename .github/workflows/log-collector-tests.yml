@@ -18,7 +18,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-24.04
+            python: '3.9'
+          - os: macos-15
+            python: '3.11'
+          - os: windows-latest
+            python: '3.11'
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -27,7 +33,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.python }}
 
       - name: Compile Python
         run: python -m py_compile tools/log-collector/get_sysdvr_log.py
