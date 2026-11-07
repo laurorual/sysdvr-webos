@@ -95,11 +95,60 @@ available.
 
 ## Install
 
+### Homebrew Channel (recommended)
+
+The **[webOS Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel)**
+can install SysDVR WebOS and check for future updates. The project has its
+own Homebrew repository, so you do **not** need to wait for approval in the
+official webOSbrew catalog.
+
+1. Open **Homebrew Channel** on your LG TV.
+2. Go to **Settings → Repositories → Add repository**.
+3. Enter this repository URL:
+
+   ```text
+   https://raw.githubusercontent.com/laurorual/sysdvr-webos/main/repo.json
+   ```
+
+4. Confirm **Add repository**, then return to the main app list. Refresh
+   the repositories if SysDVR WebOS does not appear immediately.
+5. Select **SysDVR WebOS** (shown as **SysDVR** on the TV launcher)
+   and choose **Install**.
+6. Launch the app, ensure SysDVR TCP Bridge or Switch Frame Tap Network mode
+   is running on your Switch, and select the discovered server.
+
+**Updates:** With this repository enabled, Homebrew Channel checks the
+[latest GitHub release](https://github.com/laurorual/sysdvr-webos/releases/latest)
+through its manifest. Open the app's entry in Homebrew Channel and choose
+**Update** when a newer version is offered. You do not need to remove the
+existing installation first.
+
+**Official catalog:** An [application submission](https://github.com/webosbrew/apps-repo/pull/259)
+is pending review. If SysDVR WebOS eventually becomes available in the
+default Homebrew Channel catalog, you can use that listing instead of adding
+this custom repository. Enabling both repositories may show duplicate entries.
+
+If Homebrew Channel reports **"Invalid file checksum"**, refresh the
+repository list and fully close/reopen Homebrew Channel before retrying.
+The v1.1.2 release fixes an earlier packaging issue in which an IPK was
+replaced without changing its version; releases are now immutable. If the
+error persists with the latest release, please
+[open an issue](https://github.com/laurorual/sysdvr-webos/issues) with
+the version shown and any available error details.
+
+### Manual installation (webOS Developer Mode / SDK)
+
+Alternatively, download the latest
+[ARM IPK](https://github.com/laurorual/sysdvr-webos/releases/latest)
+or build it from source, then install from the project checkout:
+
 ```bash
 ./scripts/install-webos.sh tv
 ```
 
-Replace `tv` with the name configured in your `ares` device list.
+Replace `tv` with the device name configured in your `ares` device list.
+The manual method requires the webOS CLI and a configured development
+connection to your TV.
 
 ## Run
 
