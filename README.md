@@ -146,6 +146,11 @@ log file, replaced on each launch, with a capture limit of **60 minutes or
 
 ## Release status
 
+**v1.1.2 beta** fixes Homebrew Channel update integrity: unlike previous
+rebuilds of the same v1.1.1 tag, release IPKs and manifests are now immutable.
+Refreshing the Homebrew Channel after this release should resolve stale
+checksum metadata. Streaming features are otherwise unchanged.
+
 The v1.1.1 compatibility update accepts new SFTR v2 header flags used by
 Switch Frame Tap v0.7.20, and displays descriptive waiting-status messages.
 The TV client remains a passive viewer: enable/disable viewer controls in
@@ -155,7 +160,7 @@ and does not require a separate protocol change here.
 
 
 
-**v1.1.1 is a beta release** because Switch Frame Tap support is new and the
+**v1.1.2 is a beta release** because Switch Frame Tap support is new and the
 upstream sysmodule is still evolving. SysDVR remains the mature/stable backend.
 
 ## Credits

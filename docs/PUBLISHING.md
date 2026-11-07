@@ -1,21 +1,39 @@
 # Publishing to webOS Homebrew
 
-1. Build the final ARM package with `scripts/build-webos.sh`.
-2. Create a GitHub release tagged `v1.1.0` and title it `v1.1.0 beta` and upload the generated `_arm.ipk`.
-3. Generate the Homebrew manifest:
+Releases are built and published by [GitHub Actions](../.github/workflows/release.yml).
 
-   ```bash
-   ./scripts/gen-webosbrew-manifest.py \
-     --source-url https://github.com/laurorual/sysdvr-webos \
-     --tag v1.1.0
-   ```
+## Integrity and immutable release policy
 
-4. Upload `dist/io.github.sysdvrwebos.client.manifest.json` to the same GitHub release.
-5. The webOSbrew package entry may continue to use the `releases/latest/download/...manifest.json` URL.
-6. Re-run the apps-repo checks after the release assets are available.
+**Never overwrite or rebuild an existing version/tag.** The Homebrew Channel
+can cache package metadata; replacing the IPK at the same URL with different
+bytes invalidates the checksum users previously received.
 
-The manifest must be generated from the exact IPK uploaded to the release because `ipkHash` and `ipkSize` are validated by webOSbrew.
+1. Bump the same version in `VERSION`, `CMakeLists.txt` and
+   `webos/appinfo.json`. For a packaging-only fix, increment the patch version.
+2. Add `RELEASE_NOTES_vX.Y.Z.md` with the changelog.
+3. Push to `main`. Source changes automatically trigger the release workflow.
+4. The workflow rejects an already-published tag, executes host protocol
+   tests, builds the ARM IPK, and creates the Homebrew manifest from **that
+   exact file**.
+5. It publishes the new GitHub release **without using `--clobber`**.
+   It checks the published GitHub asset SHA-256 against the locally built
+   package before committing the generated manifest to `main`.
+6. The community catalog and independent `repo.json` both point to
+   `releases/latest/download/io.github.sysdvrwebos.client.manifest.json`.
+   The release should **not** be marked GitHub Pre-release while that endpoint
+   is used; use `beta` in the release title/notes instead.
+7. If a release build fails before publication, fix the build and re-run it.
+   If a version was already published, **bump the version** instead of
+   overwriting its assets.
 
-The app does not require root; it was developed and tested through webOS Developer Mode.
+The app does not require root; it was developed and tested using webOS
+Developer Mode.
 
-> Note: the GitHub release itself should remain a normal release (not marked as a GitHub prerelease) so the existing `releases/latest/download/...` Homebrew manifest URL resolves to v1.1.0. The beta status is communicated in the release title/notes.
+## Troubleshooting: "Invalid file checksum"
+
+Compare the current release IPK digest to `ipkHash.sha256` inside the
+release's manifest. If they match, the TV may have cached a manifest from
+an older build under the same tag. Refresh repositories or close/reopen the
+Homebrew Channel, and publish a new version if the previous tag was
+overwritten. Never disable checksum verification or replace the hash with
+an unverified value.

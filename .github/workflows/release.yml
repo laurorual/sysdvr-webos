@@ -3,13 +3,21 @@ name: Build and publish SysDVR WebOS beta
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - io.github.sysdvrwebos.client.manifest.json
-      - README.md
-      - docs/**
-      - tools/log-collector/**
-      - scripts/launch-test.sh
-      - .github/workflows/log-collector-tests.yml
+    # Only rebuild when the application or release definition changes.
+    # repo.json, documentation and the standalone log collector must NOT
+    # silently overwrite a previously published version.
+    paths:
+      - VERSION
+      - CMakeLists.txt
+      - 'src/**'
+      - 'include/**'
+      - 'webos/**'
+      - scripts/build-webos.sh
+      - scripts/gen-webosbrew-manifest.py
+      - '.github/workflows/release.yml'
+      - 'RELEASE_NOTES_v*.md'
+      - tools/net_test.c
+      - tools/sft_protocol_test.c
   workflow_dispatch:
 
 permissions:
@@ -34,6 +42,21 @@ jobs:
           APP_VERSION="$(tr -d '\r\n' < VERSION)"
           test "$(python3 -c 'import json; print(json.load(open("webos/appinfo.json"))["version"])')" = "$APP_VERSION"
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+      - name: Refuse to overwrite a published version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "v${APP_VERSION}" >/dev/null 2>&1; then
+            echo "::error::Release v${APP_VERSION} already exists. Bump VERSION; never overwrite IPK/manifest at an existing tag."
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${APP_VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${APP_VERSION} already exists. Bump VERSION before publishing."
+            exit 1
+          fi
 
       - name: Install build utilities
         shell: bash
@@ -74,6 +97,49 @@ jobs:
             --output io.github.sysdvrwebos.client.manifest.json
           cat io.github.sysdvrwebos.client.manifest.json
 
+      - name: Verify manifest matches locally built IPK
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          ver = os.environ["APP_VERSION"]
+          ipk = Path(f"dist/io.github.sysdvrwebos.client_{ver}_arm.ipk")
+          manifest = json.loads(Path("io.github.sysdvrwebos.client.manifest.json").read_text())
+          digest = hashlib.sha256(ipk.read_bytes()).hexdigest()
+          assert manifest["version"] == ver, "Manifest version mismatch"
+          assert manifest["ipkSize"] == ipk.stat().st_size, "IPK size mismatch"
+          assert manifest["ipkHash"]["sha256"] == digest, "IPK checksum mismatch"
+          print(f"Verified v{ver}: {ipk.stat().st_size} bytes, sha256:{digest}")
+          PY
+
+      - name: Publish immutable beta release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v${APP_VERSION}"
+          IPK="dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk"
+          MANIFEST="io.github.sysdvrwebos.client.manifest.json"
+          gh release create "${TAG}" "${IPK}" "${MANIFEST}" \
+            --target "${GITHUB_SHA}" \
+            --title "${TAG} beta" \
+            --notes-file "RELEASE_NOTES_${TAG}.md"
+
+          # GitHub publishes an authoritative digest for each uploaded asset.
+          EXPECTED="sha256:$(sha256sum "${IPK}" | cut -d' ' -f1)"
+          REMOTE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+            --jq '.assets[] | select(.name == "io.github.sysdvrwebos.client_'"${APP_VERSION}"'_arm.ipk") | .digest')"
+          if [[ "${REMOTE}" != "${EXPECTED}" ]]; then
+            echo "::error::Published IPK digest mismatch: expected ${EXPECTED}; remote ${REMOTE}"
+            exit 1
+          fi
+          echo "Release ${TAG} verified: ${EXPECTED}"
+
       - name: Commit generated manifest
         shell: bash
         run: |
@@ -86,25 +152,3 @@ jobs:
           git add io.github.sysdvrwebos.client.manifest.json
           git commit -m "Update Homebrew manifest for v${APP_VERSION} [skip release]"
           git push origin HEAD:main
-
-      - name: Publish beta release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view v${APP_VERSION} >/dev/null 2>&1; then
-            gh release upload v${APP_VERSION} \
-              "dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
-              io.github.sysdvrwebos.client.manifest.json \
-              --clobber
-            gh release edit v${APP_VERSION} \
-              --title "v${APP_VERSION} beta" \
-              --notes-file RELEASE_NOTES_v${APP_VERSION}.md
-          else
-            gh release create v${APP_VERSION} \
-              "dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
-              io.github.sysdvrwebos.client.manifest.json \
-              --target main \
-              --title "v${APP_VERSION} beta" \
-              --notes-file RELEASE_NOTES_v${APP_VERSION}.md
-          fi
