@@ -1,0 +1,11 @@
+{
+  "packages": [
+    {
+      "id": "io.github.sysdvrwebos.client",
+      "title": "SysDVR WebOS",
+      "shortDescription": "Stream your Nintendo Switch to an LG webOS TV using SysDVR or Switch Frame Tap.",
+      "iconUri": "https://raw.githubusercontent.com/laurorual/sysdvr-webos/main/webos/icon.png",
+      "manifestUrl": "https://github.com/laurorual/sysdvr-webos/releases/latest/download/io.github.sysdvrwebos.client.manifest.json"
+    }
+  ]
+}
