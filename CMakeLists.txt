@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(sysdvr_webos VERSION 1.1.2 LANGUAGES C)
+project(sysdvr_webos VERSION 1.1.3 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -88,7 +88,7 @@ if(SYSDVR_BUILD_WEBOS)
     set(CMAKE_REQUIRED_INCLUDES "${NDL_INCLUDE_DIRS}")
     set(CMAKE_REQUIRED_DEFINITIONS "-DNDL_DIRECTMEDIA_API_VERSION=2")
     check_c_source_compiles(
-        "#include <NDL_directmedia.h>\nint main(void) { return NDL_DirectMediaInit(\"io.github.sysdvrwebos.client\"); }"
+        "#include <NDL_directmedia.h>\nint main(void) { return NDL_DirectMediaInit(\"io.github.laurorual.sysdvrwebos.client\"); }"
         SYSDVR_NDL_INIT_ONE_ARG
     )
     unset(CMAKE_REQUIRED_INCLUDES)
