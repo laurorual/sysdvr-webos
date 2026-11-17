@@ -1156,7 +1156,7 @@ int main(int argc, char **argv)
 
     const char *app_id = getenv("APPID");
     if (!app_id || !*app_id) {
-        app_id = "io.github.sysdvrwebos.client";
+        app_id = "io.github.laurorual.sysdvrwebos.client";
     }
 
     session_manager manager;
