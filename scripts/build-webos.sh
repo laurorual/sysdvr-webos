@@ -54,7 +54,7 @@ if command -v ares-package >/dev/null 2>&1; then
   fi
 
   PACKAGE_VERSION="$(tr -d '\r\n' < "$ROOT/VERSION")"
-  EXPECTED="$DIST/io.github.sysdvrwebos.client_${PACKAGE_VERSION}_arm.ipk"
+  EXPECTED="$DIST/io.github.laurorual.sysdvrwebos.client_${PACKAGE_VERSION}_arm.ipk"
   if [[ "$IPK" != "$EXPECTED" ]]; then
     mv "$IPK" "$EXPECTED"
   fi
