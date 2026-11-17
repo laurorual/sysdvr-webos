@@ -93,9 +93,9 @@ jobs:
           ./scripts/gen-webosbrew-manifest.py \
             --source-url https://github.com/laurorual/sysdvr-webos \
             --tag "v${APP_VERSION}" \
-            --ipk "dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
-            --output io.github.sysdvrwebos.client.manifest.json
-          cat io.github.sysdvrwebos.client.manifest.json
+            --ipk "dist/io.github.laurorual.sysdvrwebos.client_${APP_VERSION}_arm.ipk" \
+            --output io.github.laurorual.sysdvrwebos.client.manifest.json
+          cat io.github.laurorual.sysdvrwebos.client.manifest.json
 
       - name: Verify manifest matches locally built IPK
         shell: bash
@@ -107,8 +107,8 @@ jobs:
           from pathlib import Path
 
           ver = os.environ["APP_VERSION"]
-          ipk = Path(f"dist/io.github.sysdvrwebos.client_{ver}_arm.ipk")
-          manifest = json.loads(Path("io.github.sysdvrwebos.client.manifest.json").read_text())
+          ipk = Path(f"dist/io.github.laurorual.sysdvrwebos.client_{ver}_arm.ipk")
+          manifest = json.loads(Path("io.github.laurorual.sysdvrwebos.client.manifest.json").read_text())
           digest = hashlib.sha256(ipk.read_bytes()).hexdigest()
           assert manifest["version"] == ver, "Manifest version mismatch"
           assert manifest["ipkSize"] == ipk.stat().st_size, "IPK size mismatch"
@@ -123,8 +123,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="v${APP_VERSION}"
-          IPK="dist/io.github.sysdvrwebos.client_${APP_VERSION}_arm.ipk"
-          MANIFEST="io.github.sysdvrwebos.client.manifest.json"
+          IPK="dist/io.github.laurorual.sysdvrwebos.client_${APP_VERSION}_arm.ipk"
+          MANIFEST="io.github.laurorual.sysdvrwebos.client.manifest.json"
           gh release create "${TAG}" "${IPK}" "${MANIFEST}" \
             --target "${GITHUB_SHA}" \
             --title "${TAG} beta" \
@@ -133,7 +133,7 @@ jobs:
           # GitHub publishes an authoritative digest for each uploaded asset.
           EXPECTED="sha256:$(sha256sum "${IPK}" | cut -d' ' -f1)"
           REMOTE="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
-            --jq '.assets[] | select(.name == "io.github.sysdvrwebos.client_'"${APP_VERSION}"'_arm.ipk") | .digest')"
+            --jq '.assets[] | select(.name == "io.github.laurorual.sysdvrwebos.client_'"${APP_VERSION}"'_arm.ipk") | .digest')"
           if [[ "${REMOTE}" != "${EXPECTED}" ]]; then
             echo "::error::Published IPK digest mismatch: expected ${EXPECTED}; remote ${REMOTE}"
             exit 1
@@ -143,12 +143,12 @@ jobs:
       - name: Commit generated manifest
         shell: bash
         run: |
-          if git diff --quiet -- io.github.sysdvrwebos.client.manifest.json 2>/dev/null && \
-             git ls-files --error-unmatch io.github.sysdvrwebos.client.manifest.json >/dev/null 2>&1; then
+          if git diff --quiet -- io.github.laurorual.sysdvrwebos.client.manifest.json 2>/dev/null && \
+             git ls-files --error-unmatch io.github.laurorual.sysdvrwebos.client.manifest.json >/dev/null 2>&1; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add io.github.sysdvrwebos.client.manifest.json
+          git add io.github.laurorual.sysdvrwebos.client.manifest.json
           git commit -m "Update Homebrew manifest for v${APP_VERSION} [skip release]"
           git push origin HEAD:main

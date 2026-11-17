@@ -102,6 +102,17 @@ can install SysDVR WebOS and check for future updates. The project has its
 own Homebrew repository, so you do **not** need to wait for approval in the
 official webOSbrew catalog.
 
+**One-time migration for existing Homebrew Channel users (v1.1.2 and older):**
+Starting with v1.1.3, SysDVR WebOS uses the publisher-specific package ID
+`io.github.laurorual.sysdvrwebos.client` instead of `io.github.sysdvrwebos.client`, following the official catalog's
+namespace guidance. webOS identifies installed apps by this ID, so Homebrew
+Channel treats v1.1.3 as a separate app rather than an in-place update.
+Before installing v1.1.3, open Homebrew Channel and uninstall the previous
+**SysDVR** entry. Then refresh the repositories and install the new entry
+from the custom repository or official catalog. This prevents both app IDs
+from remaining installed at the same time. Once v1.1.3 is installed, future
+updates work normally without uninstalling it again.
+
 1. Open **Homebrew Channel** on your LG TV.
 2. Go to **Settings → Repositories → Add repository**.
 3. Enter this repository URL:
@@ -120,8 +131,9 @@ official webOSbrew catalog.
 **Updates:** With this repository enabled, Homebrew Channel checks the
 [latest GitHub release](https://github.com/laurorual/sysdvr-webos/releases/latest)
 through its manifest. Open the app's entry in Homebrew Channel and choose
-**Update** when a newer version is offered. You do not need to remove the
-existing installation first.
+**Update** when a newer version is offered. The one-time uninstall/reinstall
+described above is only required when moving from the old package ID to
+v1.1.3; subsequent updates are in-place.
 
 **Official catalog:** An [application submission](https://github.com/webosbrew/apps-repo/pull/259)
 is pending review. If SysDVR WebOS eventually becomes available in the
@@ -195,10 +207,11 @@ log file, replaced on each launch, with a capture limit of **60 minutes or
 
 ## Release status
 
-**v1.1.2 beta** fixes Homebrew Channel update integrity: unlike previous
-rebuilds of the same v1.1.1 tag, release IPKs and manifests are now immutable.
-Refreshing the Homebrew Channel after this release should resolve stale
-checksum metadata. Streaming features are otherwise unchanged.
+**v1.1.3 beta** introduces the publisher-specific package ID
+`io.github.laurorual.sysdvrwebos.client` for the webOSbrew catalog. Homebrew Channel users upgrading
+from v1.1.2 or older must uninstall the previous app and install v1.1.3 as
+a new entry; see the one-time migration instructions above. The immutable
+release and checksum protections introduced in v1.1.2 remain in effect.
 
 The v1.1.1 compatibility update accepts new SFTR v2 header flags used by
 Switch Frame Tap v0.7.20, and displays descriptive waiting-status messages.
@@ -209,8 +222,8 @@ and does not require a separate protocol change here.
 
 
 
-**v1.1.2 is a beta release** because Switch Frame Tap support is new and the
-upstream sysmodule is still evolving. SysDVR remains the mature/stable backend.
+**SysDVR WebOS is a beta release** because Switch Frame Tap support is new and
+the upstream sysmodule is still evolving. SysDVR remains the mature/stable backend.
 
 ## Credits
 
