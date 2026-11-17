@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 
-APP_ID = "io.github.sysdvrwebos.client"
+APP_ID = "io.github.laurorual.sysdvrwebos.client"
 VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text(encoding="utf-8").strip()
 TITLE = "SysDVR"
 DESCRIPTION = "Native Nintendo Switch streaming client for LG webOS TVs with SysDVR and Switch Frame Tap support"
