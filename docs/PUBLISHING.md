@@ -19,7 +19,7 @@ bytes invalidates the checksum users previously received.
    It checks the published GitHub asset SHA-256 against the locally built
    package before committing the generated manifest to `main`.
 6. The community catalog and independent `repo.json` both point to
-   `releases/latest/download/io.github.sysdvrwebos.client.manifest.json`.
+   `releases/latest/download/io.github.laurorual.sysdvrwebos.client.manifest.json`.
    The release should **not** be marked GitHub Pre-release while that endpoint
    is used; use `beta` in the release title/notes instead.
 7. If a release build fails before publication, fix the build and re-run it.
